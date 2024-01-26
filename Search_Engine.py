@@ -1,19 +1,13 @@
 from json import load
-import numpy as np
 import nltk
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
-from num2words import num2words
-from nltk.stem import PorterStemmer
 import math
-import functools,collections,operator 
 import difflib
 import string
-
-stopwords = stopwords.words('english')
-lemmatizer = WordNetLemmatizer()
-ps = PorterStemmer()
-
+from sklearn.decomposition import PCA
+import numpy as np
+from sklearn.cluster import KMeans
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 class Utilities:
@@ -29,47 +23,6 @@ class Utilities:
     return text_with_spaces
   
   @staticmethod
-  def RemoveApostrophe(text:str):
-    return np.char.replace(text, "'", "")
-
-  @staticmethod
-  def RemoveSingleCharacters(text:str):
-    words = Utilities.GetWordsListOfText(text)
-    new_text = ""
-    for w in words:
-      if len(w) > 1:
-         new_text = new_text + " " + w
-    return new_text
-
-  @staticmethod
-  def ConvertNumberstoLetters(text:str):
-    words = Utilities.GetWordsListOfText(text)
-    new_text = ''
-    for w in words:
-      if str.isnumeric(w):
-        new_text+=' '+num2words(w)
-      else:
-        new_text+=' '+w
-    return new_text
-  
-  @staticmethod
-  def RemoveStopWords(text:str):
-    words = Utilities.GetWordsListOfText(text)
-    new_text = ""
-    for word in words:
-      if word not in stopwords:
-         new_text += " " + word
-    return new_text
-  
-  @staticmethod
-  def Stemmer(text:str):
-    words = Utilities.GetWordsListOfText(text)
-    new_text = ""
-    for word in words:
-         new_text += " " + ps.stem(lemmatizer.lemmatize(word))
-    return new_text
-
-  @staticmethod
   def GetWordsListOfText(text:str):
     return nltk.word_tokenize(text)
   
@@ -82,13 +35,6 @@ class Utilities:
   def ProccessText(text:str):
     result = text.lower()
     result= Utilities.RemovePunctuation(result)
-    # result= Utilities.RemoveApostrophe(result)
-    # result = Utilities.RemoveSingleCharacters(result)
-    # result = Utilities.ConvertNumberstoLetters(result)
-    # result = Utilities.RemoveStopWords(result)
-    # result = Utilities.Stemmer(result)
-    # result= Utilities.RemovePunctuation(result)
-    # result = Utilities.ConvertNumberstoLetters(result)
     return result
   
   @staticmethod
@@ -113,6 +59,9 @@ class Utilities:
     SigmaAi2 = sum({key:vector1[key]*vector1[key] for key in vector1}.values())
     SigmaBi2 = sum({key:vector2[key]*vector2[key] for key in vector2}.values())
     return SigmaAiBi/(math.sqrt(SigmaAi2)*math.sqrt(SigmaBi2))
+  
+
+
 
 
 class Paragraph:
@@ -191,7 +140,7 @@ class SearchEngine:
 
   def __init__(self,query,docs) -> None:
     # a singleton class thar performs Main Operations of our SearchEngine
-    self.QueryDoc = Document(query)
+    self.QueryDoc = Document(query) if query!=None else None
     self.Doduments = docs
     self.Vocab = set()
     self.GetVocabSet()
@@ -266,6 +215,8 @@ class SearchEngine:
       for w in doc.Proccessed_Words:
         self.Vocab.add(w)
 
+  
+
   def Search(self):
      for par in self.QueryDoc.Paragraphs:
        self.Calculate_TFIDF_for_Paragraph(par,self.QueryDoc)
@@ -293,10 +244,51 @@ class SearchEngine:
        print(f'Paragraph {ParSimilarities[2][0].Par_Num} :  \n\n {ParSimilarities[2][0].RawData}')
 
        print(100*'-')
-     
-      
+
+  
+  def ReduceTFIDFDimensionsforDocs(self):
+      for par in self.QueryDoc.Paragraphs:
+       self.Calculate_TFIDF_for_Paragraph(par,self.QueryDoc)
+      self.Calculate_TFIDF_for_Document(self.QueryDoc)
+      TF_IDF_Vectors = np.array([list(doc.TF_IDF.values()) for doc in self.Doduments])
+    
+      pca = PCA(n_components=2, random_state=42)
+    
+      pca_vecs = pca.fit_transform(TF_IDF_Vectors)
+
+      return pca_vecs
+      # pca vecs is a matrix that has n rows represent the number of docs and every row is reduced TF_IDF vector for that particular doc.
+  
+  def ClusterReducedVectorsAndSaveitinGraph(self,reduced_vecs):
+   
+    
+    
+    kmeans = KMeans(n_clusters=5, random_state=42,n_init=10)
+    kmeans.fit(reduced_vecs)
+    # store cluster labels in a variable
+    clusters = kmeans.labels_  
+
+    x = reduced_vecs[:, 0]
+    y = reduced_vecs[:, 1]
+    df=  dict()
+    df['cluster'] = clusters
+    df['x'] = x
+    df['y'] = y
+
+  
+    plt.figure(figsize=(12, 7))
+   
+    plt.title("Document Clustering Based On TF_IDF", fontdict={"fontsize": 18})
+   
+    plt.xlabel("x", fontdict={"fontsize": 16})
+    plt.ylabel("y", fontdict={"fontsize": 16})
+  
+    sns.scatterplot(data=df, x='x', y='y', hue='cluster', palette="viridis")
+    plt.savefig('graph.png')
+  
  
-     
+
+         
      
   
   
