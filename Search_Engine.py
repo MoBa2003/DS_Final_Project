@@ -8,6 +8,11 @@ import numpy as np
 from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 import seaborn as sns
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import stopwords
+
+wnl = WordNetLemmatizer()
+stop_words = set(stopwords.words('english'))
 
 
 class Utilities:
@@ -26,6 +31,14 @@ class Utilities:
   def GetWordsListOfText(text:str):
     return nltk.word_tokenize(text)
   
+  @staticmethod
+  def LemmitizeWords(words:list):
+    return list(map(wnl.lemmatize,words))
+  
+  @staticmethod
+  def RemoveStopWords(words:list):
+    return [word for word in words if word not in stop_words]
+      
   @staticmethod
   def Get_Paragraphs(text:str):
     pars = text.split('\n')
@@ -69,7 +82,7 @@ class Paragraph:
     self.RawData = raw_data
     self.Par_Num = par_num
     self.Proccessed_data = Utilities.ProccessText(raw_data)
-    self.Proccessed_Words = Utilities.GetWordsListOfText(self.Proccessed_data)
+    self.Proccessed_Words = Utilities.LemmitizeWords(Utilities.RemoveStopWords(Utilities.GetWordsListOfText(self.Proccessed_data)))
     self.TF = None
     self.IDF=  None
     self.TF_IDF=  None
